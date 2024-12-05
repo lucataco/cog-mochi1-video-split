@@ -1,0 +1,14 @@
+# Configuration for Cog ⚙️
+# Reference: https://cog.run/yaml
+
+build:
+  gpu: false
+  system_packages:
+    - ffmpeg
+  python_version: "3.9"
+  python_packages:
+    - moviepy==1.0.3
+    - tqdm==4.66.1
+    - pillow==9.5.0
+
+predict: "predict.py:Predictor"
