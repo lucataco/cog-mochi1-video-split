@@ -1,29 +1,31 @@
 from cog import BasePredictor, Input, Path
-from typing import List
+import os
+import math
+import zipfile
 import tempfile
 from pathlib import Path as PathLib
 from moviepy.editor import VideoFileClip
-import shutil
-import math
-import zipfile
-import os
 
 class Predictor(BasePredictor):
     def setup(self):
         """Load the model into memory to make running multiple predictions efficient"""
         # Initialize any required variables
-        self.TARGET_WIDTH = 848
-        self.TARGET_HEIGHT = 480
-        self.TARGET_FPS = 30
 
     def predict(
         self,
         input_video: Path = Input(description="Input video file (MP4 or MOV)"),
         target_duration: float = Input(
             description="Target duration for each segment in seconds",
-            default=2.5,
+            default=2.0,
             ge=1.0,
-            le=5.0,
+            le=10.0,
+        ),
+        target_width: int = Input(description="Target width for each segment", default=848, ge=320, le=1920),
+        target_height: int = Input(description="Target height for each segment", default=480, ge=240, le=1080),
+        target_fps: int = Input(description="Target FPS for each segment", default=30, ge=1, le=60),
+        create_captions: bool = Input(
+            description="Create empty caption files for each segment",
+            default=False,
         ),
     ) -> Path:
         """Run video preprocessing and return a zip file containing processed segments"""
@@ -58,7 +60,7 @@ class Predictor(BasePredictor):
                     segment = video.subclip(start_time, end_time)
                     
                     # Calculate dimensions to maintain aspect ratio
-                    target_ratio = self.TARGET_WIDTH / self.TARGET_HEIGHT
+                    target_ratio = target_width / target_height
                     current_ratio = video.w / video.h
                     
                     if current_ratio > target_ratio:
@@ -73,8 +75,8 @@ class Predictor(BasePredictor):
                         final = segment.crop(y1=y1, height=new_height)
                     
                     # Resize to target resolution
-                    final = final.resize((self.TARGET_WIDTH, self.TARGET_HEIGHT))
-                    final = final.set_fps(self.TARGET_FPS)
+                    final = final.resize((target_width, target_height))
+                    final = final.set_fps(target_fps)
                     
                     # Configure output settings
                     output_params = {
@@ -87,9 +89,10 @@ class Predictor(BasePredictor):
                     # Save processed segment
                     final.write_videofile(str(output_file), **output_params)
                     
-                    # Create placeholder caption file
-                    caption_file = output_path / f"segment{segment_idx+1}.txt"
-                    caption_file.touch()
+                    # Create placeholder caption file if requested
+                    if create_captions:
+                        caption_file = output_path / f"segment{segment_idx+1}.txt"
+                        caption_file.touch()
                     
                     # Cleanup segment
                     segment.close()
